@@ -7,6 +7,7 @@ import $RefParser from '@apidevtools/json-schema-ref-parser';
 import invariant from 'tiny-invariant';
 import nunjucks from 'nunjucks';
 import yaml from 'js-yaml';
+import { v4 as uuidv4 } from 'uuid';
 import { stringify } from 'csv-stringify/sync';
 import { globSync } from 'glob';
 
@@ -29,6 +30,7 @@ import type {
   OutputFile,
   ProviderOptions,
 } from './types';
+import { db, llmOutputs } from './database';
 
 let globalConfigCache: any = null;
 
@@ -413,6 +415,22 @@ export function writeLatestResults(results: EvaluateSummary, config: Partial<Uni
   } catch (err) {
     logger.error(`Failed to write latest results to ${newResultsPath}:\n${err}`);
   }
+
+  // Write to sqlite db
+  results.results.forEach((result) => {
+    db.insert(llmOutputs).values({
+      id: uuidv4(),
+      evalId: 'bar',
+      promptId: 'baz',
+      providerId: result.provider.id || 'unknown',
+      response: JSON.stringify(result.response),
+      error: result.error,
+      latencyMs: result.latencyMs,
+      gradingResult: JSON.stringify(result.gradingResult),
+      namedScores: JSON.stringify(result.namedScores),
+      cost: result.cost,
+    });
+  });
 }
 
 const resultsCache: { [fileName: string]: ResultsFile | undefined } = {};
